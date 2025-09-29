@@ -1,40 +1,52 @@
-from flask import Blueprint, render_template, jsonify, request, send_from_directory, flash, redirect, url_for
-from flask_jwt_extended import jwt_required, current_user as jwt_current_user
-
-from.index import index_views
-
+import click
+from flask.cli import with_appcontext, AppGroup
 from App.controllers import (
-    create_user,
-    get_all_users,
-    get_all_users_json,
-    jwt_required
+    create_user_interactive,
+    list_users_grouped,
 )
 
-user_views = Blueprint('user_views', __name__, template_folder='../templates')
+#cretae user
+@click.command("create-user", help="Interactively create a user")
+@with_appcontext
+def create_user():
+    username = click.prompt("Enter username")
+    password = click.prompt("Enter password", hide_input=True)
+    role = click.prompt("Is this user a DRIVER or RESIDENT?",
+                        type=click.Choice(["DRIVER", "RESIDENT"], case_sensitive=False)).upper()
 
-@user_views.route('/users', methods=['GET'])
-def get_user_page():
-    users = get_all_users()
-    return render_template('users.html', users=users)
+    street = None
+    if role == "RESIDENT":
+        street = click.prompt('Enter street (e.g., "street")')
+        s = street.strip()
+        if len(s) >= 2 and ((s[0] == s[-1] == '"') or (s[0] == s[-1] == "'")):
+            s = s[1:-1].strip()
+        street = s
 
-@user_views.route('/users', methods=['POST'])
-def create_user_action():
-    data = request.form
-    flash(f"User {data['username']} created!")
-    create_user(data['username'], data['password'])
-    return redirect(url_for('user_views.get_user_page'))
+    out = create_user_interactive(username, password, role, street)
+    click.echo(out)
 
-@user_views.route('/api/users', methods=['GET'])
-def get_users_action():
-    users = get_all_users_json()
-    return jsonify(users)
+#list them
+list_cli = AppGroup("list", help="List helpers")
 
-@user_views.route('/api/users', methods=['POST'])
-def create_user_endpoint():
-    data = request.json
-    user = create_user(data['username'], data['password'])
-    return jsonify({'message': f"user {user.username} created with id {user.id}"})
+@list_cli.command("users", help="List all users grouped by role with role-specific IDs")
+@with_appcontext
+def list_users():
+    out = list_users_grouped()
 
-@user_views.route('/static/users', methods=['GET'])
-def static_user_page():
-  return send_from_directory('static', 'static-user.html')
+    click.echo("DRIVERS:")
+    if out["drivers"]:
+        for d in out["drivers"]:
+            click.echo(f'  id={d["driverNo"]}  username={d["username"]}')
+    else:
+        click.echo("  (none)")
+
+    click.echo("\nRESIDENTS:")
+    if out["residents"]:
+        for r in out["residents"]:
+            click.echo(f'  id={r["residentNo"]}  username={r["username"]}  street={r["street"]}')
+    else:
+        click.echo("  (none)")
+
+def register(app):
+    app.cli.add_command(create_user)
+    app.cli.add_command(list_cli)

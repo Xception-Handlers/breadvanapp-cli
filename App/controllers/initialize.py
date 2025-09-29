@@ -1,8 +1,9 @@
-from .user import create_user
-from App.database import db
-
+from App.database import create_db
+from App.controllers.user import create_user_basic
 
 def initialize():
-    db.drop_all()
-    db.create_all()
-    create_user('bob', 'bobpass')
+    create_db()
+
+    seed = create_user_basic("bob", "bobpass", "DRIVER")
+
+    return {"message": "database initialized", "seed": seed}
