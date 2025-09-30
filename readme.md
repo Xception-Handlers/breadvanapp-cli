@@ -1,188 +1,184 @@
-![Tests](https://github.com/uwidcit/flaskmvc/actions/workflows/dev.yml/badge.svg)
+### Bus Route CLI Application
 
-# Flask MVC Template
-A template for flask applications structured in the Model View Controller pattern [Demo](https://dcit-flaskmvc.herokuapp.com/). [Postman Collection](https://documenter.getpostman.com/view/583570/2s83zcTnEJ)
+A command-line interface (CLI) application for managing bus routes, drivers, residents, and delivery schedules. This Flask-based application provides interactive commands for user management, scheduling, status updates, and communication between drivers and residents.
 
+## Features
 
-# Dependencies
-* Python3/pip3
-* Packages listed in requirements.txt
+User Management: Create and list drivers and residents
+Scheduling: Schedule drives for drivers to specific streets
+Driver Operations: Update driver status and location, view driver inbox
+Resident Operations: Request stops from drivers, view resident inbox
+Testing: Run unit and integration tests
 
-# Installing Dependencies
-```bash
-$ pip install -r requirements.txt
+## Prerequisites
+
+Python 3.7+
+Flask
+Click
+Pytest
+Flask-Migrate (for database migrations)
+
+## Installation
+
+Clone the repository:
+```
+git clone <repository-url>
+cd <project-directory>
+```
+Install dependencies:
+```
+pip install -r requirements.txt
+```
+Initialize the database:
+```
+flask init
 ```
 
-# Configuration Management
+## Usage
 
-
-Configuration information such as the database url/port, credentials, API keys etc are to be supplied to the application. However, it is bad practice to stage production information in publicly visible repositories.
-Instead, all config is provided by a config file or via [environment variables](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/).
-
-## In Development
-
-When running the project in a development environment (such as gitpod) the app is configured via default_config.py file in the App folder. By default, the config for development uses a sqlite database.
-
-default_config.py
-```python
-SQLALCHEMY_DATABASE_URI = "sqlite:///temp-database.db"
-SECRET_KEY = "secret key"
-JWT_ACCESS_TOKEN_EXPIRES = 7
-ENV = "DEVELOPMENT"
-```
-
-These values would be imported and added to the app in load_config() function in config.py
-
-config.py
-```python
-# must be updated to inlude addtional secrets/ api keys & use a gitignored custom-config file instad
-def load_config():
-    config = {'ENV': os.environ.get('ENV', 'DEVELOPMENT')}
-    delta = 7
-    if config['ENV'] == "DEVELOPMENT":
-        from .default_config import JWT_ACCESS_TOKEN_EXPIRES, SQLALCHEMY_DATABASE_URI, SECRET_KEY
-        config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
-        config['SECRET_KEY'] = SECRET_KEY
-        delta = JWT_ACCESS_TOKEN_EXPIRES
-...
-```
-
-## In Production
-
-When deploying your application to production/staging you must pass
-in configuration information via environment tab of your render project's dashboard.
-
-![perms](./images/fig1.png)
-
-# Flask Commands
-
-wsgi.py is a utility script for performing various tasks related to the project. You can use it to import and test any code in the project. 
-You just need create a manager command function, for example:
-
-```python
-# inside wsgi.py
-
-user_cli = AppGroup('user', help='User object commands')
-
-@user_cli.cli.command("create-user")
-@click.argument("username")
-@click.argument("password")
-def create_user_command(username, password):
-    create_user(username, password)
-    print(f'{username} created!')
-
-app.cli.add_command(user_cli) # add the group to the cli
+Database Initialization
 
 ```
+flask init
+```
+Creates and initializes the database with any required seed data.
 
-Then execute the command invoking with flask cli with command name and the relevant parameters
+## User Management
 
-```bash
-$ flask user create bob bobpass
+Create a new user:
+
+```
+flask user create
+```
+Prompts for:
+
+Username
+Password (hidden input)
+Role (DRIVER or RESIDENT)
+Street (if resident)
+List all users:
+
+```
+flask user list
+```
+or for raw JSON output:
+
+```
+flask user list json
 ```
 
+## Scheduling
 
-# Running the Project
+Schedule a drive:
 
-_For development run the serve command (what you execute):_
-```bash
-$ flask run
+```
+flask schedule drive
+```
+Prompts for:
+
+Driver user ID
+Street name 
+
+## Driver Operations
+
+Update status or view inbox:
+
+```
+flask driver status
+```
+Prompts for:
+
+Driver user ID
+Action ('set' to update status/location or 'get' to view inbox)
+If setting status, also prompts for:
+
+Status (OFF_DUTY, EN_ROUTE, DELIVERING)
+Location note (optional)
+
+## Resident Operations
+
+Request a stop from a driver:
+
+```
+flask request stop
+```
+Prompts for:
+
+Resident user ID
+Confirmation to proceed
+Driver user ID to request
+Optional note
+
+## Inbox Management
+
+View inbox messages:
+
+```
+flask inbox
+```
+Prompts for:
+
+Role (DRIVER or RESIDENT)
+User ID
+
+## Testing
+
+Run all tests:
+
+```
+flask test
+```
+Run user unit tests:
+
+```
+flask test user unit
+```
+Run user integration tests:
+
+```
+flask test user int
 ```
 
-_For production using gunicorn (what the production server executes):_
-```bash
-$ gunicorn wsgi:app
-```
+## Command Summary
 
-# Deploying
-You can deploy your version of this app to render by clicking on the "Deploy to Render" link above.
+Command	Description
+flask init	            Initialize database
+flask user create	    Create new user (interactive)
+flask user list	        List all users
+flask schedule drive	Schedule drive for driver
+flask driver status	    Update driver status or view inbox
+flask request stop	    Request stop from driver
+flask inbox	            View inbox messages
+flask test	            Run test suite
 
-# Initializing the Database
-When connecting the project to a fresh empty database ensure the appropriate configuration is set then file then run the following command. This must also be executed once when running the app on heroku by opening the heroku console, executing bash and running the command in the dyno.
+## User Roles
 
-```bash
-$ flask init
-```
+DRIVER: Can schedule drives, update status, view inbox messages from residents
+RESIDENT: Can request stops from drivers, view inbox messages from drivers
 
-# Database Migrations
-If changes to the models are made, the database must be'migrated' so that it can be synced with the new models.
-Then execute following commands using manage.py. More info [here](https://flask-migrate.readthedocs.io/en/latest/)
+## Status Types
 
-```bash
-$ flask db init
-$ flask db migrate
-$ flask db upgrade
-$ flask db --help
-```
+Drivers can have one of three statuses:
 
-# Testing
+OFF_DUTY: Not currently working
+EN_ROUTE: Traveling to destination
+DELIVERING: Actively making deliveries
 
-## Unit & Integration
-Unit and Integration tests are created in the App/test. You can then create commands to run them. Look at the unit test command in wsgi.py for example
+## Project Structure
 
-```python
-@test.command("user", help="Run User tests")
-@click.argument("type", default="all")
-def user_tests_command(type):
-    if type == "unit":
-        sys.exit(pytest.main(["-k", "UserUnitTests"]))
-    elif type == "int":
-        sys.exit(pytest.main(["-k", "UserIntegrationTests"]))
-    else:
-        sys.exit(pytest.main(["-k", "User"]))
-```
+text
+App/
+├── controllers/    # Business logic and command handlers
+├── database/       # Database configuration and models
+├── main.py         # Application factory
+└── tests/          # Test suites
 
-You can then execute all user tests as follows
+## Development
 
-```bash
-$ flask test user
-```
+The application uses:
 
-You can also supply "unit" or "int" at the end of the comand to execute only unit or integration tests.
-
-You can run all application tests with the following command
-
-```bash
-$ pytest
-```
-
-## Test Coverage
-
-You can generate a report on your test coverage via the following command
-
-```bash
-$ coverage report
-```
-
-You can also generate a detailed html report in a directory named htmlcov with the following comand
-
-```bash
-$ coverage html
-```
-
-# Troubleshooting
-
-## Views 404ing
-
-If your newly created views are returning 404 ensure that they are added to the list in main.py.
-
-```python
-from App.views import (
-    user_views,
-    index_views
-)
-
-# New views must be imported and added to this list
-views = [
-    user_views,
-    index_views
-]
-```
-
-## Cannot Update Workflow file
-
-If you are running into errors in gitpod when updateding your github actions file, ensure your [github permissions](https://gitpod.io/integrations) in gitpod has workflow enabled ![perms](./images/gitperms.png)
-
-## Database Issues
-
-If you are adding models you may need to migrate the database with the commands given in the previous database migration section. Alternateively you can delete you database file.
+Flask for the web framework
+Click for CLI command creation
+Flask-Migrate for database migrations
+Pytest for testing
+To add new commands, follow the existing pattern of creating AppGroups and adding commands to them.
