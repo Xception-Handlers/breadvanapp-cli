@@ -1,0 +1,549 @@
+{
+	"info": {
+		"_postman_id": "291a5e23-4f14-4485-a69d-1a5bc4741b1a",
+		"name": "BreadVan API Collection",
+		"description": "Ready-to-run requests + tests mirroring the pytest full flow.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42473450",
+		"_collection_link": "https://www.postman.com/research-explorer-7496046/workspace/breadvan-api/collection/42473450-291a5e23-4f14-4485-a69d-1a5bc4741b1a?action=share&source=collection_link&creator=42473450"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login (set {{jwt}})",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 200\", () => pm.response.code === 200);",
+									"const b = pm.response.json();",
+									"pm.test(\"Token present in response\", () => typeof b.access_token === \"string\");",
+									"pm.environment.set(\"jwt\", b.access_token);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"bob\",\n  \"password\": \"bobpass\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Create Resident",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Created (200/201)\", () => [200,201].includes(pm.response.code));",
+									"const u = pm.response.json();",
+									"pm.test(\"Has id and username\", () => u.id && u.username);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"alice\",\n  \"password\": \"alicepass\",\n  \"role\": \"RESIDENT\",\n  \"street\": \"High Street\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Driver",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Created (200/201)\", () => [200,201].includes(pm.response.code));",
+									"const u = pm.response.json();",
+									"pm.test(\"Has id and username\", () => u.id && u.username);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"rob\",\n  \"password\": \"robpass\",\n  \"role\": \"DRIVER\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Users",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.code === 200);",
+									"const data = pm.response.json();",
+									"pm.test(\"Grouped users object\", () => data.drivers && data.residents);",
+									"",
+									"const alice = (data.residents || []).find(r => r.username === \"alice\");",
+									"const rob   = (data.drivers   || []).find(d => d.username  === \"rob\");",
+									"",
+									"const pickedResident = alice || (data.residents && data.residents[0]);",
+									"const pickedDriver   = rob   || (data.drivers   && data.drivers[0]);",
+									"",
+									"pm.test(\"Resident found\",   () => pickedResident && pickedResident.id);",
+									"pm.test(\"Driver found\",     () => pickedDriver   && pickedDriver.id);",
+									"",
+									"pm.environment.set(\"residentNo\", pickedResident.id); ",
+									"pm.environment.set(\"driverNo\",   pickedDriver.id);   ",
+									"pm.environment.set(\"residentStreet\", \"High Street\");"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update User 1 (rename alice)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"OK\", () => pm.response.code === 200);",
+									"const u = pm.response.json();",
+									"pm.test(\"Has id & username\", () => u.id && u.username);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"alice_updated\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Drives",
+			"item": [
+				{
+					"name": "Create Drive for Driver {{driverNo}} to High Street",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Created (200/201)\", () => [200,201].includes(pm.response.code));",
+									"const out = pm.response.json();",
+									"pm.test(\"Drive payload present\", () => out.drive && out.drive.driverNo && out.drive.street);",
+									"",
+									"pm.environment.set(\"lastDriveId\", out.drive.id);"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get('driverNo')) {",
+									"  pm.environment.set('driverNo', '1');",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"driverNo\": {{driverNo}}, \"street\": \"{{residentStreet}}\" }"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/drives",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"drives"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Driver Status",
+			"item": [
+				{
+					"name": "Set Driver {{driverNo}} Status = EN_ROUTE",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.code === 200);",
+									"const out = pm.response.json();",
+									"pm.test(\"Driver status is EN_ROUTE\", () => out.driver && out.driver.status === \"EN_ROUTE\");"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{ \"status\": \"EN_ROUTE\", \"location\": \"Gas station\" }"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/drivers/{{driverNo}}/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"drivers",
+								"{{driverNo}}",
+								"status"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Requests",
+			"item": [
+				{
+					"name": "List Available Drivers for Resident {{residentNo}} (confirm=false)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.code === 200);",
+									"const out = pm.response.json();",
+									"",
+									"pm.test(\"Drivers listed for resident street (confirm=false)\", () =>",
+									"  !out.error && Array.isArray(out.drivers)",
+									");"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get('residentNo')) {",
+									"  pm.environment.set('residentNo', '1');",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"residentNo\": {{residentNo}},\n  \"confirm\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/requests",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"requests"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Stop Request (confirm=true) for Resident {{residentNo}} to Driver {{driverNo}}",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Created (200/201)\", () => [200,201].includes(pm.response.code));",
+									"const out = pm.response.json();",
+									"pm.test(\"Stop request created/accepted\", () =>",
+									"  !out.error && out.request && out.request.residentId && out.request.driverId",
+									");"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get('residentNo')) pm.environment.set('residentNo', '1');",
+									"if (!pm.environment.get('driverNo')) pm.environment.set('driverNo', '1');"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"residentNo\": {{residentNo}},\n  \"driverNo\": {{driverNo}},\n  \"confirm\": true,\n  \"note\": \"Please stop by #42\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/requests",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"requests"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "jwt",
+			"value": ""
+		},
+		{
+			"key": "jwt_exp",
+			"value": ""
+		}
+	]
+}
