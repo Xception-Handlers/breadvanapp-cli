@@ -182,3 +182,137 @@ Click for CLI command creation
 Flask-Migrate for database migrations
 Pytest for testing
 To add new commands, follow the existing pattern of creating AppGroups and adding commands to them.
+
+## 🧪 Testing and Validation
+
+### Overview
+The BreadVan / Bus Route CLI application includes both **automated backend testing** (via Pytest) and **API-level testing** (via Postman).  
+These tests ensure that all features — from user creation to drive scheduling — work as intended and remain stable during updates.
+
+---
+
+## ⚙️ Pytest (Unit and Integration Tests)
+
+### Description
+Pytest is used to verify the functionality of individual modules (unit tests) and their combined workflows (integration tests).  
+The tests cover:
+- User creation and authentication  
+- Database relationships (Drivers, Residents, Drives)  
+- Drive scheduling and status updates  
+- Resident stop requests and inbox communication
+
+### Test Files
+All test scripts are located in the `App/tests/` directory:
+```
+App/tests/
+├── test_unit_models.py          # Verifies model behavior and relationships
+├── test_unit_controllers.py     # Validates user creation, updates, and grouping logic
+├── test_integration_api.py      # End-to-end API flow tests
+└── test_app.py                  # Combined test suite entry point
+```
+
+### Commands
+
+Run all tests:
+```
+pytest -q
+```
+
+Run detailed test output:
+```
+pytest -v
+```
+
+Clean and re-run tests:
+```
+find App -name "__pycache__" -type d -exec rm -rf {} + && pytest -q
+```
+
+Expected output:
+```
+=================================== test session starts ===================================
+collected 13 items
+App/tests/test_app.py ....................                           [100%]
+=================================== 13 passed in 0.24s ====================================
+```
+
+### Coverage
+| Component | Description | Example Test |
+|------------|-------------|---------------|
+| User Model | Checks password hashing and JSON output | `test_user_password_hashing()` |
+| Controllers | Ensures create/update/list user functions work correctly | `test_create_user_and_list_grouped()` |
+| Auth Logic | Validates JWT issuance and authentication flow | `test_authenticate()` |
+| Drives & Requests | Simulates full driver–resident interaction | `test_schedule_and_status_update()` |
+
+---
+
+## 🌐 Postman API Testing
+
+### Description
+Postman tests simulate **real API requests** to validate the application’s REST endpoints and ensure end-to-end reliability.  
+The collection automates login, user creation, drive scheduling, status updates, and stop requests using stored environment variables.
+
+### Setup
+1. Import the Postman collection:  
+   ```
+   /postman/BreadVan.postman_collection.json
+   ```
+2. Create a Postman environment:
+   ```
+   base_url = http://127.0.0.1:8080
+   jwt = (leave blank)
+   ```
+3. Start the Flask app:
+   ```
+   flask --app wsgi.py run
+   ```
+4. Log in via `/api/auth/login` to auto-populate your JWT.
+5. Run the full collection in **Collection Runner** using your environment.
+
+### Key Tests
+| Endpoint | Method | Description |
+|-----------|---------|-------------|
+| `/api/auth/login` | POST | Authenticates user, retrieves JWT |
+| `/api/users` | GET | Returns grouped drivers and residents |
+| `/api/users` | POST | Creates new driver or resident |
+| `/api/users/<id>` | PUT | Updates username |
+| `/api/drives` | POST | Creates a scheduled drive for a driver |
+| `/api/drivers/<id>/status` | PUT | Updates driver status/location |
+| `/api/requests` | POST | Resident requests or confirms stop |
+| `/api/inbox/resident/<id>` | GET | Retrieves resident inbox |
+| `/api/inbox/driver/<id>` | GET | Retrieves driver inbox |
+
+### Running the Tests
+In Postman:
+1. Click **Runner → BreadVan API Collection**
+2. Choose your **BreadVan Local Environment**
+3. Click **Run Collection**
+4. Confirm that all tests show **green “PASS”** indicators.
+
+Expected result:
+```
+Collection run complete — 10/10 tests passed ✅
+Total time: ~1.2s
+Environment: BreadVan Local Env
+```
+
+---
+
+## 📊 Test Reporting
+
+| Test Category | Tool | Scope | Result |
+|----------------|------|-------|--------|
+| Unit Tests | Pytest | Models, Controllers | ✅ Passed |
+| Integration Tests | Pytest | End-to-End Flow | ✅ Passed |
+| API Tests | Postman | REST Endpoints | ✅ Passed |
+
+---
+
+## 🧾 Notes
+- All endpoints except `/api/auth/login` require `Authorization: Bearer <jwt>`.  
+- The local database uses SQLite by default.  
+- Pytest runs against a clean, in-memory test DB each time.  
+- Postman variables (`jwt`, `driverNo`, `residentNo`) are dynamically updated between requests.  
+- Both test suites ensure the system adheres to RESTful conventions and business rules.
+
+---
