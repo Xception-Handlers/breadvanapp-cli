@@ -12,7 +12,6 @@ class AdminView(ModelView):
         return current_user is not None
 
     def inaccessible_callback(self, name, **kwargs):
-        # redirect to login page if user doesn't have access
         flash("Login to access admin")
         return redirect(url_for('index_page', next=request.url))
 

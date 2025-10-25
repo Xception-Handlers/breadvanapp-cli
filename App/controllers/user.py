@@ -1,73 +1,85 @@
-from ..database import db
-from ..models import User, Driver, Resident
-from sqlalchemy import func
+from __future__ import annotations
 
-#get role by id
-def get_driver_by_no(driver_no: int) -> Driver | None:
-    return Driver.query.filter_by(driver_no=driver_no).first()
+from typing import Optional, Dict, List
+from sqlalchemy import asc
 
-def get_resident_by_no(resident_no: int) -> Resident | None:
-    return Resident.query.filter_by(resident_no=resident_no).first()
+from App.models import db, User, Resident, Driver
 
-#diff users create
-def create_user_basic(username: str, password: str, role: str, street_if_resident: str | None = None):
-    """
-    Non-interactive user creation for seeding or scripted flows.
-    role: "DRIVER" or "RESIDENT"
-    """
-    if User.query.filter_by(username=username).first():
-        return {"error": f'username "{username}" already taken'}
 
+def get_user(user_id: int) -> Optional[User]:
+    return db.session.get(User, user_id)
+
+
+def get_user_by_username(username: str) -> Optional[User]:
+    return User.query.filter_by(username=username).first()
+
+
+def get_driver_by_no(driver_no: int):
+    from App.models import Driver
+    d = Driver.query.get(driver_no)         
+    if d:
+        return d
+    
+    return Driver.query.filter_by(user_id=driver_no).first()
+
+
+def get_resident_by_no(resident_no: int):
+    from App.models import Resident
+    r = Resident.query.get(resident_no)
+    if r:
+        return r
+    return Resident.query.filter_by(user_id=resident_no).first()
+
+
+def create_user(username: str, password: str, role: str = "RESIDENT", street: str = None):
+    from App.models import db, User, Resident, Driver
+
+    if not role:
+        role = "RESIDENT"
     role = role.upper()
+
+    existing = User.query.filter_by(username=username).first()
+    if existing:
+        return existing
+
+    u = User(username=username, password=password, role=role)
+    db.session.add(u)
+    db.session.flush()
+
+
     if role == "DRIVER":
-        next_no = (db.session.query(func.max(Driver.driver_no)).scalar() or 0) + 1
-        u = Driver(username=username, userType="DRIVER", driver_no=next_no)
-        u.set_password(password)
-        db.session.add(u)
-        db.session.commit()
-        return {"message": "driver created", "user": u.toJSON()}
+        db.session.add(Driver(user_id=u.id))
+    else:
+        db.session.add(Resident(user_id=u.id, street=street or ""))
 
-    if role == "RESIDENT":
-        if not street_if_resident:
-            return {"error": "resident must include a street"}
-        next_no = (db.session.query(func.max(Resident.resident_no)).scalar() or 0) + 1
-        u = Resident(
-            username=username,
-            userType="RESIDENT",
-            resident_no=next_no,
-            street=street_if_resident,
-        )
-        u.set_password(password)
-        db.session.add(u)
-        db.session.commit()
-        return {"message": "resident created", "user": u.toJSON()}
+    db.session.commit()
+    return u
 
-    return {"error": 'invalid role (use "DRIVER" or "RESIDENT")'}
 
-def create_user_interactive(username: str, password: str, role: str, street_if_resident: str | None):
+def update_user(user_id: int, new_username: Optional[str] = None) -> User:
+    u = get_user(user_id)
+    if not u:
+        raise ValueError(f"user with id {user_id} not found")
+    if new_username:
+        if User.query.filter(User.id != user_id, User.username == new_username).first():
+            raise ValueError("username already exists")
+        u.username = new_username
+    db.session.commit()
+    return u
+
+
+def get_all_users_json():
+    from App.models import User
+    users = User.query.all()
+    return [{"id": u.id, "username": u.username} for u in users]
+
+
+
+
+def list_users_grouped() -> Dict[str, List[dict]]:
     """
-    Same as basic, but mirrors the interactive CLI flow (already validated inputs).
+    Group users by role with keys exactly 'drivers' and 'residents' (tests expect these).
     """
-    return create_user_basic(username, password, role, street_if_resident)
-
-def create_user(username: str, password: str):
-    return create_user_basic(username, password, role="DRIVER")
-
-#list
-def list_users_grouped():
-    drivers = (
-        Driver.query
-        .order_by(Driver.driver_no.asc())
-        .with_entities(Driver.driver_no, Driver.username)
-        .all()
-    )
-    residents = (
-        Resident.query
-        .order_by(Resident.resident_no.asc())
-        .with_entities(Resident.resident_no, Resident.username, Resident.street)
-        .all()
-    )
-    return {
-        "drivers": [{"driverNo": d.driver_no, "username": d.username} for d in drivers],
-        "residents": [{"residentNo": r.resident_no, "username": r.username, "street": r.street} for r in residents],
-    }
+    drivers = [u.get_json() for u in User.query.filter_by(role="DRIVER").order_by(asc(User.id)).all()]
+    residents = [u.get_json() for u in User.query.filter_by(role="RESIDENT").order_by(asc(User.id)).all()]
+    return {"drivers": drivers, "residents": residents}

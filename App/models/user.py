@@ -1,84 +1,81 @@
+from App.database import db
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
-from ..database import db
-
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    userType = db.Column(db.String(50), nullable=False)  # noet user driver or resi
-    createdAt = db.Column(db.String(100), default=lambda: datetime.now().strftime("%Y/%m/%d, %H:%M:%S"))
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default="RESIDENT")
 
-    type = db.Column(db.String(50)) 
-    __mapper_args__ = {"polymorphic_on": type, "polymorphic_identity": "user"}
+    driver_profile = db.relationship(
+        "Driver",
+        uselist=False,
+        back_populates="user"
+    )
+    resident = db.relationship("Resident", uselist=False, back_populates="user")
+
+    def __init__(self, username, password=None, role="RESIDENT"):
+        self.username = username
+        if password:
+           self.set_password(password)
+        else:
+           self.password_hash = ""
+        self.role = role.upper()
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = generate_password_hash(password, method='sha256')
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    def toJSON(self):
+    def get_json(self):
         return {
             "id": self.id,
-            "username": self.username,
-            "userType": self.userType,
-            "createdAt": self.createdAt,
+            "username": self.username
+        }
+    
+    def toJSON(self):
+        return self.get_json()
+    
+    @property
+    def password(self):
+        return self.password_hash
+
+
+class Driver(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    driver_no = db.Column(db.Integer, unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    user = db.relationship("User", back_populates="driver_profile")
+
+    def __init__(self, user_id):
+        self.user_id = user_id
+
+    def get_json(self):
+        return {
+            "id": self.id,
+            "driver_no": self.driver_no,
+            "user_id": self.user_id
         }
 
+class Resident(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    user = db.relationship("User", back_populates="resident")
+    street = db.Column(db.String, nullable=True)
 
-class Driver(User):
-    __tablename__ = "driver"
-    id = db.Column(db.Integer, db.ForeignKey("user.id"), primary_key=True)
+    @property
+    def resident_no(self):
+        return self.id
+    
+from sqlalchemy import event
 
-    driver_no = db.Column(db.Integer, unique=True, nullable=False)
-    status = db.Column(db.String(50), default="OFF_DUTY")  #OFF_DUTY, EN_ROUTE or DELIVERING
-    location = db.Column(db.String(255), default="")
-    statusUpdatedAt = db.Column(db.String(100), default=lambda: datetime.now().strftime("%Y/%m/%d, %H:%M:%S"))
-
-    drives = db.relationship("Drive", backref="driver", lazy=True)
-    stop_requests = db.relationship("StopRequest", backref="driver", lazy=True)
-
-    __mapper_args__ = {"polymorphic_identity": "driver"}
-
-    def toJSON(self):
-        data = super().toJSON()
-        data.update({
-            "driverNo": self.driver_no,
-            "status": self.status,
-            "location": self.location,
-            "statusUpdatedAt": self.statusUpdatedAt,
-        })
-        return data
-
-    @staticmethod
-    def next_driver_no():
-        max_no = db.session.query(db.func.max(Driver.driver_no)).scalar()
-        return (max_no or 0) + 1
-
-
-class Resident(User):
-    __tablename__ = "resident"
-    id = db.Column(db.Integer, db.ForeignKey("user.id"), primary_key=True)
-
-    resident_no = db.Column(db.Integer, unique=True, nullable=False)
-    street = db.Column(db.String(120), nullable=False)
-
-    stop_requests = db.relationship("StopRequest", backref="resident", lazy=True)
-
-    __mapper_args__ = {"polymorphic_identity": "resident"}
-
-    def toJSON(self):
-        data = super().toJSON()
-        data.update({
-            "residentNo": self.resident_no,
-            "street": self.street,
-        })
-        return data
-
-    @staticmethod
-    def next_resident_no():
-        max_no = db.session.query(db.func.max(Resident.resident_no)).scalar()
-        return (max_no or 0) + 1
-
+@event.listens_for(Driver, 'after_insert')
+def assign_driver_no(mapper, connection, target):
+    
+    connection.execute(
+        Driver.__table__.update()
+        .where(Driver.id == target.id)
+        .values(driver_no=target.id)
+    )

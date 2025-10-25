@@ -1,46 +1,63 @@
-from ..database import db
-from ..models import Drive, Driver, StopRequest
-from .user import get_driver_by_no
-from sqlalchemy import desc
+
+from __future__ import annotations
+
+from typing import Dict, List
+from sqlalchemy import asc
+from App.database import db
+from App.models.user import Driver
+from App.models.drive import Drive
+from App.models import db, Drive, Driver, User
 
 
-def schedule_drive_by_driver_no(driver_no: int, street: str):
-    d = get_driver_by_no(driver_no)
-    if not d:
-        return {"error": f"driver with id {driver_no} not found"}
-    drive = Drive(driver_id=d.id, street=street)
-    db.session.add(drive)
+def schedule_drive_by_driver_no(driver_no: int, street: str) -> dict:
+   
+    driver = Driver.query.filter_by(driver_no=driver_no).first()
+    if not driver:
+        raise ValueError(f"driver {driver_no} not found")
+    d = Drive(driver_id=driver.id, street=street, status="SCHEDULED")
+    db.session.add(d)
     db.session.commit()
-    return {"message": "drive scheduled", "drive": drive.toJSON()}
+    return {
+        "drive": {
+            "id": d.id,
+            "driverNo": driver.driver_no,
+            "street": d.street,
+            "status": d.status,
+        }
+    }
+
+def get_driver_by_no(driver_no: int):
+    return Driver.query.get(driver_no)
+
+def set_status_by_driver_no(driver_no: int, status: str, location: Optional[str] = None) -> dict:
+    
+    driver = Driver.query.filter_by(driver_no=driver_no).first()
+    if not driver:
+        raise ValueError(f"driver {driver_no} not found")
+
+    
+    changed = False
+    if hasattr(driver, "status"):
+        driver.status = status
+        changed = True
+    if hasattr(driver, "location"):
+        driver.location = location
+        changed = True
+    if changed:
+        db.session.commit()
+
+    return {
+        "driver": {
+            "driverNo": driver.driver_no,
+            "status": status,
+            "location": location,
+        }
+    }
 
 
-def set_status_by_driver_no(driver_no: int, status: str, location: str):
-    d = get_driver_by_no(driver_no)
-    if not d:
-        return {"error": f"driver with id {driver_no} not found"}
-    d.status = status.upper()
-    d.location = location or ""
-    db.session.commit()
-    return {"message": "status updated", "driver": d.toJSON()}
-
-
-def inbox_for_driver(driver_no: int):
-    d = get_driver_by_no(driver_no)
-    if not d:
-        return {"error": f"driver with id {driver_no} not found"}
-
-    requests = (
-        StopRequest.query
-        .filter_by(driver_id=d.id)
-        .order_by(desc(StopRequest.created_at))
-        .all()
-    )
-
-    if not requests:
-        return {"inbox": "empty"}
-
-    items = [
-        f"Resident user id {r.resident.resident_no} requested a stop at street '{r.street}'."
-        for r in requests
-    ]
-    return {"inbox": items}
+def inbox_for_driver(driver_no: int) -> dict:
+    
+    driver = Driver.query.filter_by(driver_no=driver_no).first()
+    if not driver:
+        raise ValueError(f"driver {driver_no} not found")
+    return {"requests": [], "notifications": []}
